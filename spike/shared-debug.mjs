@@ -1,0 +1,15 @@
+import { connectShared, shutdownShared } from "../dist/chrome.js";
+const OUT = process.argv[2];
+const b = await connectShared();
+const ctx = b.contexts()[0];
+console.log("pages at start:", ctx.pages().map((p) => p.url()));
+const page = await ctx.newPage();
+const errs = [];
+page.on("console", (m) => { if (m.type() === "error" || m.type() === "warning") errs.push(m.type() + ": " + m.text().slice(0, 200)); });
+page.on("websocket", (ws) => { console.log("ws:", ws.url().slice(0, 90)); ws.on("close", () => console.log("ws closed:", ws.url().slice(0, 60))); });
+await page.goto("https://www.figma.com/design/r8Vr9f9sN9f4NdYOWhmh8X", { waitUntil: "domcontentloaded" });
+await page.waitForTimeout(15000);
+console.log(await page.evaluate(() => ({ ua: navigator.userAgent, w: innerWidth, h: innerHeight, n: window.figma?.currentPage?.children?.length })));
+await page.screenshot({ path: OUT + "/shared-debug.png" });
+console.log(errs.slice(0, 15).join("\n"));
+await shutdownShared(b);
